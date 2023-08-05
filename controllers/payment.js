@@ -2,16 +2,44 @@ const amqp = require("amqplib/callback_api");
 const dotenv = require("dotenv");
 
 dotenv.config();
+
+let PayStack = require("paystack-node");
+
+let APIKEY = process.env.PAYSTACK_SECRET_KEY;
+const environment = process.env.NODE_ENV;
+
+const paystack = new PayStack(APIKEY, environment);
+
 const paymentNotication = async (req, res) => {
-  console.log("Called");
+  console.log("IS WEBHOOK CALLED?", req.body);
   try {
-    // when a user makes a successful payment using the webhook, emit an event and send to the message queue incase of network failure when the payment was made
-    const payment = {
-      ...req.body,
+    const product = {
+      id: 1,
+      title: "Infinix note 5",
+      price: 4000000,
+      quantity: 1,
+      amount: 4000000,
     };
+
+    const createTransaction = await paystack.initializeTransaction({
+      // reference: "7PVGX8MEk85tgeEpVDtD",
+      amount: product.amount, // 5,000 Naira (remember you have to pass amount in kobo)
+      // get the email from the user object in redux. send as q QS
+      email: "algomachine007@gmail.com",
+      // subaccount: "ACCT_8f4s1eq7ml6rlzj",
+    });
+    // send to queue successful transactions. i.e
+
+    const isPaymentVerified = await paystack.verifyTransaction({
+      // console.log(createTransaction.reference)
+      reference: "p0j5t1zmbk",
+    });
+    console.log("isPaymentVerified", isPaymentVerified.body);
+    const mergePaymentAndProduct = {};
+
     const queue = "paymentNotificationQueue";
 
-    if (payment.success) {
+    if (isPaymentVerified.body) {
       amqp.connect(process.env.RABBIT_MQ, function (error, connection) {
         console.log("error", error);
         if (error) {
@@ -25,9 +53,13 @@ const paymentNotication = async (req, res) => {
           channel.assertQueue(queue, {
             durable: true,
           });
-          channel.sendToQueue(queue, Buffer.from(JSON.stringify(payment)), {
-            persistent: true,
-          });
+          channel.sendToQueue(
+            queue,
+            Buffer.from(JSON.stringify(isPaymentVerified.body)),
+            {
+              persistent: true,
+            },
+          );
           console.log("Sent to queue '%s'");
         });
         setTimeout(function () {
