@@ -9,7 +9,7 @@ let APIKEY = process.env.PAYSTACK_SECRET_KEY;
 const environment = process.env.NODE_ENV;
 
 const paystack = new PayStack(APIKEY, environment);
-
+const queue = "paymentNotificationQueue";
 const paymentNotication = async (req, res) => {
   console.log("IS WEBHOOK CALLED?", req.body);
   try {
@@ -36,8 +36,6 @@ const paymentNotication = async (req, res) => {
     });
     console.log("isPaymentVerified", isPaymentVerified.body);
     const mergePaymentAndProduct = {};
-
-    const queue = "paymentNotificationQueue";
 
     if (isPaymentVerified.body) {
       amqp.connect(process.env.RABBIT_MQ, function (error, connection) {
@@ -76,8 +74,6 @@ const paymentNotication = async (req, res) => {
 
 // sends an sms to user on payment and inventory status
 const smsEmitter = async (req, res) => {
-  const queue = "paymentNotificationQueue";
-  console.log("Called");
   try {
     // Listener that then sends an sms based on payment and account balance
     amqp.connect(process.env.RABBIT_MQ, function (error0, connection) {
